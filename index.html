@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contract Cost Comparison</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useMemo } = React;
+
+    function ContractComparison() {
+      const [contracts, setContracts] = useState([
+        {
+          id: 1,
+          name: 'Option 1',
+          start_price: 0,
+          start_date: new Date().toISOString().split('T')[0],
+          increase_date: '31-03',
+          increase_amount: 0,
+          contract_months: 12
+        }
+      ]);
+
+      const [nextId, setNextId] = useState(2);
+
+      const addContract = () => {
+        setContracts([...contracts, {
+          id: nextId,
+          name: `Option ${nextId}`,
+          start_price: 0,
+          start_date: new Date().toISOString().split('T')[0],
+          increase_date: '31-03',
+          increase_amount: 0,
+          contract_months: 12
+        }]);
+        setNextId(nextId + 1);
+      };
+
+      const removeContract = (id) => {
+        if (contracts.length > 1) {
+          setContracts(contracts.filter(c => c.id !== id));
+        }
+      };
+
+      const updateContract = (id, field, value) => {
+        setContracts(contracts.map(c => 
+          c.id === id ? { ...c, [field]: value } : c
+        ));
+      };
+
+      const calculateTotalCost = (contract) => {
+        const startPrice = contract.start_price;
+        const startDate = new Date(contract.start_date);
+        const increaseAmount = contract.increase_amount;
+        const contractMonths = contract.contract_months;
+        const increaseDateStr = contract.increase_date;
+        
+        if (!increaseDateStr) {
+          return (startPrice * contractMonths).toFixed(2);
+        }
+        
+        let total = 0;
+        let currentPrice = startPrice;
+        
+        for (let month = 0; month < contractMonths; month++) {
+          if (month > 0) {
+            const [increaseDay, increaseMonth] = increaseDateStr.split('-').map(Number);
+            
+            const previousMonthDate = new Date(startDate);
+            previousMonthDate.setMonth(startDate.getMonth() + month - 1);
+            
+            const currentMonthDate = new Date(startDate);
+            currentMonthDate.setMonth(startDate.getMonth() + month);
+            
+            const increaseYear = currentMonthDate.getMonth() < increaseMonth - 1 ? 
+              currentMonthDate.getFullYear() : 
+              currentMonthDate.getFullYear();
+            const nextIncreaseDate = new Date(increaseYear, increaseMonth - 1, increaseDay);
+            
+            if (previousMonthDate < nextIncreaseDate && currentMonthDate >= nextIncreaseDate) {
+              currentPrice += increaseAmount;
+            }
+          }
+          
+          total += currentPrice;
+        }
+        
+        return total.toFixed(2);
+      };
+
+      const getEffectiveMonthlyCost = (contract) => {
+        const total = calculateTotalCost(contract);
+        return (total / contract.contract_months).toFixed(2);
+      };
+
+      const bestValue = useMemo(() => {
+        if (contracts.length === 0) return null;
+        return contracts.reduce((best, current) => {
+          const bestMonthly = parseFloat(getEffectiveMonthlyCost(best));
+          const currentMonthly = parseFloat(getEffectiveMonthlyCost(current));
+          return currentMonthly < bestMonthly ? current : best;
+        });
+      }, [contracts]);
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-8">
+              <h1 className="text-4xl font-bold text-gray-800 mb-2">Contract Cost Comparison</h1>
+              <p className="text-gray-600">Compare multiple contract options to find the best value</p>
+            </div>
+
+            <div className="mb-6 flex justify-center">
+              <button
+                onClick={addContract}
+                className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition shadow-lg"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                Add Contract Option
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {contracts.map(contract => (
+                <div key={contract.id} className="bg-white rounded-lg shadow-xl overflow-hidden">
+                  <div 
+                    className={`text-white text-center py-2 font-semibold text-sm h-10 flex items-center justify-center ${
+                      bestValue && contract.id === bestValue.id && contracts.length > 1 ? 'bg-green-500' : 'bg-gray-200'
+                    }`}
+                  >
+                    {bestValue && contract.id === bestValue.id && contracts.length > 1 && (
+                      <span>⭐ Best Value</span>
+                    )}
+                  </div>
+                  
+                  <div className="p-6">
+                    <div className="flex justify-between items-start mb-4">
+                      <input
+                        type="text"
+                        value={contract.name}
+                        onChange={(e) => updateContract(contract.id, 'name', e.target.value)}
+                        className="text-xl font-bold text-gray-800 border-b-2 border-transparent hover:border-gray-300 focus:border-blue-500 outline-none transition flex-1 mr-2"
+                      />
+                      {contracts.length > 1 && (
+                        <button
+                          onClick={() => removeContract(contract.id)}
+                          className="text-red-500 hover:text-red-700 transition p-1"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Starting Price (£)
+                        </label>
+                        <input
+                          type="number"
+                          value={contract.start_price}
+                          onChange={(e) => updateContract(contract.id, 'start_price', parseFloat(e.target.value) || 0)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                          step="0.01"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Starting Date
+                        </label>
+                        <input
+                          type="date"
+                          value={contract.start_date}
+                          onChange={(e) => updateContract(contract.id, 'start_date', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Annual Increase Date
+                        </label>
+                        <select
+                          value={contract.increase_date}
+                          onChange={(e) => updateContract(contract.id, 'increase_date', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
+                        >
+                          <option value="31-03">31st March</option>
+                          <option value="01-04">1st April</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Annual Increase Amount (£)
+                        </label>
+                        <input
+                          type="number"
+                          value={contract.increase_amount}
+                          onChange={(e) => updateContract(contract.id, 'increase_amount', parseFloat(e.target.value) || 0)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                          step="0.01"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Contract Length (Months)
+                        </label>
+                        <input
+                          type="number"
+                          value={contract.contract_months}
+                          onChange={(e) => updateContract(contract.id, 'contract_months', parseInt(e.target.value) || 1)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                          min="1"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-6 pt-6 border-t border-gray-200">
+                      <div 
+                        className={`rounded-lg p-4 text-white ${
+                          bestValue && contract.id === bestValue.id && contracts.length > 1
+                            ? 'bg-gradient-to-r from-green-500 to-green-600'
+                            : 'bg-gradient-to-r from-blue-500 to-indigo-600'
+                        }`}
+                      >
+                        <div className="flex justify-between items-center mb-3">
+                          <span className="text-sm font-medium">Total Cost:</span>
+                          <span className="text-2xl font-bold">£{calculateTotalCost(contract)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-blue-100">
+                          <span className="text-xs">Effective Monthly:</span>
+                          <span className="text-lg font-semibold">£{getEffectiveMonthlyCost(contract)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<ContractComparison />, document.getElementById('root'));
+  </script>
+</body>
+</html>
