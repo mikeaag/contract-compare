@@ -16,15 +16,23 @@
     const { useState, useMemo } = React;
 
     function ContractComparison() {
+      const [globalSettings, setGlobalSettings] = useState({
+        start_date: new Date().toISOString().split('T')[0],
+        increase_date: '31-03',
+        increase_amount: 0,
+        current_monthly_price: 0
+      });
+
       const [contracts, setContracts] = useState([
         {
           id: 1,
           name: 'Option 1',
           start_price: 0,
-          start_date: new Date().toISOString().split('T')[0],
-          increase_date: '31-03',
-          increase_amount: 0,
-          contract_months: 12
+          start_date: null,
+          increase_date: null,
+          increase_amount: null,
+          contract_months: 12,
+          useCustomSettings: false
         }
       ]);
 
@@ -35,10 +43,11 @@
           id: nextId,
           name: `Option ${nextId}`,
           start_price: 0,
-          start_date: new Date().toISOString().split('T')[0],
-          increase_date: '31-03',
-          increase_amount: 0,
-          contract_months: 12
+          start_date: null,
+          increase_date: null,
+          increase_amount: null,
+          contract_months: 12,
+          useCustomSettings: false
         }]);
         setNextId(nextId + 1);
       };
@@ -55,12 +64,35 @@
         ));
       };
 
+      const updateGlobalSetting = (field, value) => {
+        setGlobalSettings({ ...globalSettings, [field]: value });
+      };
+
+      const toggleCustomSettings = (id) => {
+        setContracts(contracts.map(c => 
+          c.id === id ? { 
+            ...c, 
+            useCustomSettings: !c.useCustomSettings,
+            start_date: !c.useCustomSettings ? globalSettings.start_date : c.start_date,
+            increase_date: !c.useCustomSettings ? globalSettings.increase_date : c.increase_date,
+            increase_amount: !c.useCustomSettings ? globalSettings.increase_amount : c.increase_amount
+          } : c
+        ));
+      };
+
+      const getEffectiveValue = (contract, field) => {
+        if (contract.useCustomSettings && contract[field] !== null) {
+          return contract[field];
+        }
+        return globalSettings[field];
+      };
+
       const calculateTotalCost = (contract) => {
         const startPrice = contract.start_price;
-        const startDate = new Date(contract.start_date);
-        const increaseAmount = contract.increase_amount;
+        const startDate = new Date(getEffectiveValue(contract, 'start_date'));
+        const increaseAmount = getEffectiveValue(contract, 'increase_amount');
         const contractMonths = contract.contract_months;
-        const increaseDateStr = contract.increase_date;
+        const increaseDateStr = getEffectiveValue(contract, 'increase_date');
         
         if (!increaseDateStr) {
           return (startPrice * contractMonths).toFixed(2);
@@ -114,7 +146,64 @@
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-8">
               <h1 className="text-4xl font-bold text-gray-800 mb-2">Contract Cost Comparison</h1>
-              <p className="text-gray-600">Compare multiple contract options (with mid-contract price increases) to find the best value</p>
+              <p className="text-gray-600">Compare multiple contract options, with mid-contract price increases, to find the best value</p>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-xl p-6 mb-8">
+              <h2 className="text-2xl font-bold text-gray-800 mb-4">Global Settings</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Default Starting Date
+                  </label>
+                  <input
+                    type="date"
+                    value={globalSettings.start_date}
+                    onChange={(e) => updateGlobalSetting('start_date', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Default Annual Increase Date
+                  </label>
+                  <select
+                    value={globalSettings.increase_date}
+                    onChange={(e) => updateGlobalSetting('increase_date', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
+                  >
+                    <option value="31-03">31st March</option>
+                    <option value="01-04">1st April</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Default Annual Increase (£)
+                  </label>
+                  <input
+                    type="number"
+                    value={globalSettings.increase_amount}
+                    onChange={(e) => updateGlobalSetting('increase_amount', parseFloat(e.target.value) || 0)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    step="0.01"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Current Monthly Price (£)
+                  </label>
+                  <input
+                    type="number"
+                    value={globalSettings.current_monthly_price}
+                    onChange={(e) => updateGlobalSetting('current_monthly_price', parseFloat(e.target.value) || 0)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    step="0.01"
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="mb-6 flex justify-center">
@@ -166,6 +255,18 @@
 
                     <div className="space-y-4">
                       <div>
+                        <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
+                          <input
+                            type="checkbox"
+                            checked={contract.useCustomSettings}
+                            onChange={() => toggleCustomSettings(contract.id)}
+                            className="mr-2 w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                          />
+                          Use Custom Settings
+                        </label>
+                      </div>
+
+                      <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Starting Price (£)
                         </label>
@@ -178,44 +279,48 @@
                         />
                       </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Starting Date
-                        </label>
-                        <input
-                          type="date"
-                          value={contract.start_date}
-                          onChange={(e) => updateContract(contract.id, 'start_date', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                        />
-                      </div>
+                      {contract.useCustomSettings && (
+                        <>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Starting Date
+                            </label>
+                            <input
+                              type="date"
+                              value={contract.start_date || globalSettings.start_date}
+                              onChange={(e) => updateContract(contract.id, 'start_date', e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                            />
+                          </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Annual Increase Date
-                        </label>
-                        <select
-                          value={contract.increase_date}
-                          onChange={(e) => updateContract(contract.id, 'increase_date', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
-                        >
-                          <option value="31-03">31st March</option>
-                          <option value="01-04">1st April</option>
-                        </select>
-                      </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Annual Increase Date
+                            </label>
+                            <select
+                              value={contract.increase_date || globalSettings.increase_date}
+                              onChange={(e) => updateContract(contract.id, 'increase_date', e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
+                            >
+                              <option value="31-03">31st March</option>
+                              <option value="01-04">1st April</option>
+                            </select>
+                          </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Annual Increase Amount (£)
-                        </label>
-                        <input
-                          type="number"
-                          value={contract.increase_amount}
-                          onChange={(e) => updateContract(contract.id, 'increase_amount', parseFloat(e.target.value) || 0)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                          step="0.01"
-                        />
-                      </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Annual Increase Amount (£)
+                            </label>
+                            <input
+                              type="number"
+                              value={contract.increase_amount !== null ? contract.increase_amount : globalSettings.increase_amount}
+                              onChange={(e) => updateContract(contract.id, 'increase_amount', parseFloat(e.target.value) || 0)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                              step="0.01"
+                            />
+                          </div>
+                        </>
+                      )}
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -243,10 +348,24 @@
                           <span className="text-sm font-medium">Total Cost:</span>
                           <span className="text-2xl font-bold">£{calculateTotalCost(contract)}</span>
                         </div>
-                        <div className="flex justify-between items-center text-blue-100">
+                        <div className="flex justify-between items-center mb-2">
                           <span className="text-xs">Effective Monthly:</span>
                           <span className="text-lg font-semibold">£{getEffectiveMonthlyCost(contract)}</span>
                         </div>
+                        {globalSettings.current_monthly_price > 0 && (
+                          <div className="flex justify-between items-center pt-2 border-t border-white border-opacity-30">
+                            <span className="text-xs">vs Current Price:</span>
+                            <span className={`text-sm font-semibold ${
+                              parseFloat(getEffectiveMonthlyCost(contract)) < globalSettings.current_monthly_price 
+                                ? 'text-green-200' 
+                                : 'text-red-200'
+                            }`}>
+                              {parseFloat(getEffectiveMonthlyCost(contract)) < globalSettings.current_monthly_price ? '↓' : '↑'} 
+                              £{Math.abs(parseFloat(getEffectiveMonthlyCost(contract)) - globalSettings.current_monthly_price).toFixed(2)}
+                              {parseFloat(getEffectiveMonthlyCost(contract)) < globalSettings.current_monthly_price ? ' cheaper' : ' more expensive'}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
