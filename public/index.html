@@ -62,6 +62,17 @@
         initialState?.nextId || 2
       );
 
+      // Update URL whenever state changes (without affecting browser history)
+      useEffect(() => {
+        const state = {
+          globalSettings,
+          contracts,
+          nextId
+        };
+        const encoded = btoa(encodeURIComponent(JSON.stringify(state)));
+        window.history.replaceState(null, '', `#${encoded}`);
+      }, [globalSettings, contracts, nextId]);
+
       const addContract = () => {
         setContracts([...contracts, {
           id: nextId,
