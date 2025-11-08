@@ -98,30 +98,39 @@
           return (startPrice * contractMonths).toFixed(2);
         }
         
-        let total = 0;
-        let currentPrice = startPrice;
+        const [day, month] = increaseDateStr.split('-').map(Number);
         
-        for (let month = 0; month < contractMonths; month++) {
-          if (month > 0) {
-            const [increaseDay, increaseMonth] = increaseDateStr.split('-').map(Number);
-            
-            const previousMonthDate = new Date(startDate);
-            previousMonthDate.setMonth(startDate.getMonth() + month - 1);
-            
-            const currentMonthDate = new Date(startDate);
-            currentMonthDate.setMonth(startDate.getMonth() + month);
-            
-            const increaseYear = currentMonthDate.getMonth() < increaseMonth - 1 ? 
-              currentMonthDate.getFullYear() : 
-              currentMonthDate.getFullYear();
-            const nextIncreaseDate = new Date(increaseYear, increaseMonth - 1, increaseDay);
-            
-            if (previousMonthDate < nextIncreaseDate && currentMonthDate >= nextIncreaseDate) {
-              currentPrice += increaseAmount;
-            }
+        // Calculate contract end date
+        const endDate = new Date(startDate);
+        endDate.setMonth(startDate.getMonth() + contractMonths);
+        
+        // Find all annual increase dates within the contract period
+        const increaseDates = [];
+        for (let year = startDate.getFullYear(); year <= endDate.getFullYear() + 1; year++) {
+          const increaseDate = new Date(year, month - 1, day);
+          if (increaseDate > startDate && increaseDate < endDate) {
+            increaseDates.push(increaseDate);
+          }
+        }
+        increaseDates.sort((a, b) => a - b);
+        
+        // Calculate total cost month by month, applying increases as we reach them
+        let total = 0;
+        let price = startPrice;
+        let increaseIndex = 0;
+        
+        for (let i = 0; i < contractMonths; i++) {
+          const billingDate = new Date(startDate);
+          billingDate.setMonth(startDate.getMonth() + i);
+          
+          // Apply any price increases that occur on or before this billing date
+          while (increaseIndex < increaseDates.length && 
+                 increaseDates[increaseIndex] <= billingDate) {
+            price += increaseAmount;
+            increaseIndex++;
           }
           
-          total += currentPrice;
+          total += price;
         }
         
         return total.toFixed(2);
